@@ -58,7 +58,7 @@ This will launch a local development server (default: `http://127.0.0.1:5000`).
 
 🌐 Usage
 
-1. Open http://localhost:5000 in your browser.
+1. Open http://localhost:5002 in your browser.
 
 2. Choose to load via path (server-side images) or upload files.
 
