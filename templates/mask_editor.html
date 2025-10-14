@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ProofreadingTool – Editor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      color: #1e1e1e;
+      background-color: #fafafa;
+    }
+
+    .main-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 20px 40px;
+    }
+
+    h1 {
+      font-size: 1.6em;
+      margin-bottom: 0.4em;
+      flex-shrink: 0;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    label { font-weight: 500; }
+
+    button {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background-color: #1d4ed8; }
+    button.btn-secondary {
+      background-color: #e5e7eb;
+      color: #111;
+    }
+
+    #save.saving {
+      background-color: #9ca3af;
+      cursor: wait;
+    }
+
+    .editor-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      position: relative;
+    }
+
+    #canvas-container {
+      position: relative;
+      display: inline-block;
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
+      margin: auto;
+    }
+
+    canvas {
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      image-rendering: pixelated;
+      cursor: crosshair;
+      display: block;
+    }
+
+    #mask-layer {
+      position: absolute;
+      top: 0; left: 0;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+      text-align: center;
+    }
+
+    .slice-ctrl button {
+      background-color: #2563eb;
+      color: white;
+      font-size: 1.1em;
+      font-weight: bold;
+      border-radius: 6px;
+      padding: 3px 10px;
+      margin: 0 3px;
+      cursor: pointer;
+    }
+    .slice-ctrl button:hover { background-color: #1d4ed8; }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #555;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    .editor-wrapper::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    .editor-wrapper::-webkit-scrollbar-thumb {
+      background: rgba(100, 100, 100, 0.3);
+      border-radius: 5px;
+    }
+    .editor-wrapper::-webkit-scrollbar-thumb:hover {
+      background: rgba(80, 80, 80, 0.6);
+    }
+
+    .warning {
+      color: #b91c1c;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-wrapper">
+    <h1>ProofreadingTool Editor</h1>
+
+    <!-- 🔹 Inline dataset upload/change box -->
+    <details style="margin-bottom:12px; background:#f9fafb; border:1px solid #d1d5db; border-radius:8px; padding:10px 14px;">
+      <summary style="cursor:pointer;font-weight:600;">Change dataset (upload or path)</summary>
+      <form action="/" method="POST" enctype="multipart/form-data" style="margin-top:10px;">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+          <label><input type="radio" name="load_mode" value="path" checked> Use local file paths</label>
+          <label><input type="radio" name="load_mode" value="upload"> Upload files</label>
+        </div>
+
+        <div id="inline-path">
+          <label>Image path</label>
+          <input type="text" name="image_path" value="{{ image_path or '' }}" placeholder="/path/to/image.tif"
+                 style="width:420px;padding:6px 8px;border:1px solid #ccc;border-radius:4px;">
+          <label>Mask path (optional)</label>
+          <input type="text" name="mask_path" value="{{ mask_path or '' }}" placeholder="/path/to/mask.tif"
+                 style="width:420px;padding:6px 8px;border:1px solid #ccc;border-radius:4px;">
+        </div>
+
+        <div id="inline-upload" style="display:none;">
+          <label>Image/Stack file</label>
+          <input type="file" name="image_file" accept=".tif,.tiff,.png,.jpg,.jpeg">
+          <label>Mask file (optional)</label>
+          <input type="file" name="mask_file" accept=".tif,.tiff,.png,.jpg,.jpeg">
+        </div>
+
+        <button type="submit"
+                style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer;">
+          Load
+        </button>
+
+        {% if warning %}
+        <div class="warning">{{ warning }}</div>
+        {% endif %}
+      </form>
+    </details>
+
+    <div class="toolbar">
+      <label>Paint Brush
+        <input id="paint-brush" type="range" min="1" max="64" value="8">
+      </label>
+      <label>Erase Brush
+        <input id="erase-brush" type="range" min="1" max="64" value="8">
+      </label>
+
+      <button id="mode-add">Paint</button>
+      <button id="mode-erase" class="btn-secondary">Erase</button>
+
+      {% if mode3d %}
+      <label>Slice
+        <span class="slice-ctrl">
+          <button type="button" id="z-dec" aria-label="Previous slice">−</button>
+          <input id="z" type="number" min="0" max="{{ num_slices - 1 }}" step="1" value="0"
+                 inputmode="numeric" style="width:60px; font-size:1.1em;">
+          <button type="button" id="z-inc" aria-label="Next slice">+</button>
+        </span>
+      </label>
+      {% endif %}
+      <button id="undo">Undo</button>
+      <button id="redo">Redo</button>
+      <button id="toggle-mask">Hide Mask</button>
+      <button id="save">Save</button>
+    </div>
+
+    <div class="editor-wrapper" id="editor-wrapper">
+      <div id="canvas-container">
+        <canvas id="base"></canvas>
+        <canvas id="mask-layer"></canvas>
+      </div>
+    </div>
+
+    <p class="hint">
+      <b>Shortcuts:</b> ⌘/Ctrl + Z → Undo, ⌘/Ctrl + Shift + Z → Redo  
+      Hold mouse to paint / erase.  
+      <b>Zoom:</b> ⌘ Command + Scroll.  
+      <b>Navigate:</b> A/D or ←/→ to switch slices.
+    </p>
+  </div>
+
+<script>
+const is3D = {{ 'true' if mode3d else 'false' }};
+const maxZ = {{ num_slices - 1 if mode3d else 0 }};
+let z = 0;
+let paintBrush = 8, eraseBrush = 8, brush = paintBrush;
+let mode = 'add', drawing = false, isNavigating = false;
+const editedSlices = {};
+const undoStacks = {}, redoStacks = {}; // per-slice undo/redo
+
+const base = document.getElementById('base');
+const mask = document.getElementById('mask-layer');
+const bctx = base.getContext('2d');
+const mctx = mask.getContext('2d');
+const container = document.getElementById('canvas-container');
+const editorWrapper = document.getElementById('editor-wrapper');
+
+/* ---- Mask toggle ---- */
+const toggleBtn = document.getElementById('toggle-mask');
+let maskVisible = true;
+toggleBtn.onclick = () => {
+  maskVisible = !maskVisible;
+  mask.style.visibility = maskVisible ? 'visible' : 'hidden';
+  toggleBtn.textContent = maskVisible ? 'Hide Mask' : 'Show Mask';
+};
+
+/* ---- Zoom ---- */
+let zoom = 1;
+const minZoom = 0.2, maxZoom = 5.0;
+editorWrapper.addEventListener('wheel', (e) => {
+  if (!e.metaKey) return;
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  zoom = Math.min(maxZoom, Math.max(minZoom, zoom * delta));
+  container.style.transform = `scale(${zoom})`;
+}, { passive: false });
+
+/* ---- Brushes ---- */
+document.getElementById('paint-brush').oninput = e => {
+  paintBrush = parseInt(e.target.value, 10);
+  if (mode === 'add') brush = paintBrush;
+};
+document.getElementById('erase-brush').oninput = e => {
+  eraseBrush = parseInt(e.target.value, 10);
+  if (mode === 'erase') brush = eraseBrush;
+};
+
+/* ---- Mode toggle ---- */
+function setMode(m){
+  mode = m;
+  document.getElementById('mode-add').classList.toggle('btn-secondary', m !== 'add');
+  document.getElementById('mode-erase').classList.toggle('btn-secondary', m !== 'erase');
+  brush = (mode === 'add') ? paintBrush : eraseBrush;
+}
+document.getElementById('mode-add').onclick  = ()=>setMode('add');
+document.getElementById('mode-erase').onclick= ()=>setMode('erase');
+
+/* ---- Slice navigation ---- */
+if (is3D) {
+  const zInput = document.getElementById('z');
+  const zInc   = document.getElementById('z-inc');
+  const zDec   = document.getElementById('z-dec');
+
+  async function gotoSlice(newZ) {
+    if (isNavigating) return;
+    newZ = Math.max(0, Math.min(maxZ, newZ|0));
+    if (newZ === z) return;
+
+    isNavigating = true;
+    try {
+      await cacheCurrentSlice();
+      z = newZ;
+      if (zInput.value != z) zInput.value = z;
+      await loadSlice();
+    } finally { isNavigating = false; }
+  }
+
+  zInc.addEventListener('click', () => gotoSlice(z + 1));
+  zDec.addEventListener('click', () => gotoSlice(z - 1));
+  zInput.addEventListener('change', () => gotoSlice(parseInt(zInput.value, 10)));
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (['a', 'A', 'ArrowLeft'].includes(e.key)) gotoSlice(z - 1);
+    else if (['d', 'D', 'ArrowRight'].includes(e.key)) gotoSlice(z + 1);
+  });
+  window.gotoSlice = gotoSlice;
+}
+
+/* ---- Load slice ---- */
+async function loadSlice(){
+  const [imgBlob, maskBlob] = await Promise.all([
+    fetch(`/api/slice/${is3D?z:0}`).then(r=>r.blob()),
+    fetch(`/api/mask/${is3D?z:0}`).then(r=>r.blob())
+  ]);
+  const [imgBitmap, maskBitmap] = await Promise.all([
+    createImageBitmap(imgBlob), createImageBitmap(maskBlob)
+  ]);
+  [base.width, base.height] = [imgBitmap.width, imgBitmap.height];
+  [mask.width, mask.height] = [maskBitmap.width, maskBitmap.height];
+  bctx.drawImage(imgBitmap, 0, 0);
+  mctx.clearRect(0,0,mask.width,mask.height);
+  mctx.drawImage(maskBitmap, 0, 0);
+
+  if (editedSlices[z]) {
+    const img = new Image();
+    img.src = "data:image/png;base64," + editedSlices[z];
+    await new Promise(res => { img.onload = () => res(mctx.drawImage(img, 0, 0)); });
+  }
+  undoStacks[z] = undoStacks[z] || [];
+  redoStacks[z] = redoStacks[z] || [];
+}
+loadSlice();
+
+/* ---- Painting + History ---- */
+base.onmousedown = e => { pushHistory(); drawing = true; paint(e); };
+base.onmousemove = e => { if(drawing) paint(e); };
+window.onmouseup  = ()=> drawing = false;
+
+function paint(e){
+  const rect = base.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (base.width / rect.width);
+  const y = (e.clientY - rect.top)  * (base.height / rect.height);
+  mctx.fillStyle = mode === 'add' ? 'white' : 'black';
+  mctx.beginPath();
+  mctx.arc(x, y, brush, 0, 2*Math.PI);
+  mctx.fill();
+}
+
+/* ---- Undo / Redo ---- */
+function pushHistory(){
+  const stack = undoStacks[z] = undoStacks[z] || [];
+  if (stack.length > 50) stack.shift(); // limit memory
+  stack.push(mctx.getImageData(0,0,mask.width,mask.height));
+  redoStacks[z] = []; // clear redo when new paint
+}
+
+function undo(){
+  const stack = undoStacks[z] || [];
+  if (!stack.length) return;
+  const redoStack = redoStacks[z] = redoStacks[z] || [];
+  redoStack.push(mctx.getImageData(0,0,mask.width,mask.height));
+  const prev = stack.pop();
+  if (prev) mctx.putImageData(prev,0,0);
+}
+function redo(){
+  const stack = redoStacks[z] || [];
+  if (!stack.length) return;
+  const undoStack = undoStacks[z] = undoStacks[z] || [];
+  undoStack.push(mctx.getImageData(0,0,mask.width,mask.height));
+  const next = stack.pop();
+  if (next) mctx.putImageData(next,0,0);
+}
+
+document.getElementById('undo').onclick = undo;
+document.getElementById('redo').onclick = redo;
+window.addEventListener('keydown', e=>{
+  if (e.metaKey || e.ctrlKey){
+    if (e.key === 'z' && !e.shiftKey){ e.preventDefault(); undo(); }
+    else if ((e.key === 'Z' && e.shiftKey) || (e.key==='y')){ e.preventDefault(); redo(); }
+  }
+});
+
+/* ---- Cache slice (safe Base64 encoder) ---- */
+async function cacheCurrentSlice(){
+  if (!is3D) return;
+  const blob = await new Promise(res => mask.toBlob(res, 'image/png'));
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  editedSlices[z] = btoa(binary);
+}
+
+/* ---- Save all slices ---- */
+document.getElementById('save').onclick = async ()=>{
+  const saveBtn = document.getElementById('save');
+  saveBtn.classList.add('saving');
+  saveBtn.textContent = 'Saving...';
+  try {
+    if (is3D) await cacheCurrentSlice();
+    const batch = Object.entries(editedSlices).map(([z, png]) => ({ z: parseInt(z), png }));
+    if (!batch.length) throw new Error('No changes to save.');
+
+    const r = await fetch('/api/mask/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ full_batch: batch })
+    });
+    const resp = await r.json();
+    if (!resp.success) throw new Error(resp.error || 'Mask update failed');
+
+    const fin = await fetch('/api/save', {method:'POST'});
+    const data = await fin.json();
+    if (!data.success) throw new Error(data.error || 'Save incomplete');
+
+    await loadSlice();
+    Object.keys(editedSlices).forEach(k=>delete editedSlices[k]);
+    saveBtn.textContent = 'Saved!';
+  } catch (err){
+    console.error(err); alert(err.message);
+  } finally {
+    setTimeout(()=>{ saveBtn.textContent='Save'; saveBtn.classList.remove('saving'); },1000);
+  }
+};
+setMode('add');
+</script>
+
+<script>
+  // Inline dataset toggle logic
+  (function () {
+    const pathBox = document.getElementById('inline-path');
+    const uploadBox = document.getElementById('inline-upload');
+    document.querySelectorAll('input[name="load_mode"]').forEach(r => {
+      r.addEventListener('change', e => {
+        const useUpload = e.target.value === 'upload';
+        uploadBox.style.display = useUpload ? 'block' : 'none';
+        pathBox.style.display   = useUpload ? 'none'  : 'block';
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

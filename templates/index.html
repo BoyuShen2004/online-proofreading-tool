@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ProofreadingTool</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 40px;
+      color: #1e1e1e;
+    }
+    h1 {
+      font-size: 1.8em;
+      margin-bottom: 0.2em;
+    }
+    form {
+      margin-top: 1em;
+    }
+    .form-group {
+      margin-bottom: 1.2em;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.4em;
+      font-weight: 500;
+    }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      max-width: 480px;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .btn {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background-color: #1d4ed8;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ProofreadingTool</h1>
+  <p>Load a 2D image (png/jpg) or a 3D TIFF stack, and optionally an existing mask.</p>
+
+  <form action="/" method="POST" enctype="multipart/form-data">
+
+    <div class="form-group">
+      <label>
+        <input type="radio" name="load_mode" value="path" checked>
+        Use local file paths
+      </label>
+      <label>
+        <input type="radio" name="load_mode" value="upload">
+        Upload files
+      </label>
+    </div>
+
+    <!-- Local path inputs -->
+    <div id="path-inputs">
+      <div class="form-group">
+        <label>Image/Stack path</label>
+        <input type="text" name="image_path" placeholder="/path/to/image.tif or /path/to/image.png">
+      </div>
+      <div class="form-group">
+        <label>Mask path (optional)</label>
+        <input type="text" name="mask_path" placeholder="/path/to/mask.tif or /path/to/mask.png">
+      </div>
+    </div>
+
+    <!-- Upload inputs -->
+    <div id="upload-inputs" style="display:none;">
+      <div class="form-group">
+        <label>Image/Stack file</label>
+        <input type="file" name="image_file" accept=".tif,.tiff,.png,.jpg,.jpeg">
+      </div>
+      <div class="form-group">
+        <label>Mask file (optional)</label>
+        <input type="file" name="mask_file" accept=".tif,.tiff,.png,.jpg,.jpeg">
+      </div>
+    </div>
+
+    <button type="submit" class="btn">Load</button>
+  </form>
+
+  <script>
+    // --- toggle between path and upload mode ---
+    const pathInputs = document.getElementById("path-inputs");
+    const uploadInputs = document.getElementById("upload-inputs");
+    const radios = document.querySelectorAll("input[name='load_mode']");
+
+    radios.forEach(radio => {
+      radio.addEventListener("change", () => {
+        if (radio.value === "path") {
+          pathInputs.style.display = "block";
+          uploadInputs.style.display = "none";
+        } else {
+          pathInputs.style.display = "none";
+          uploadInputs.style.display = "block";
+        }
+      });
+    });
+  </script>
+</body>
+</html>
