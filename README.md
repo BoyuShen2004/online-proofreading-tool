@@ -53,3 +53,17 @@ python app.py
 ```
 
 This will launch a local development server (default: `http://127.0.0.1:5000`).
+
+---
+
+🌐 Usage
+
+1. Open http://localhost:5000 in your browser.
+
+2. Choose to load via path (server-side images) or upload files.
+
+3. For 3D datasets, scroll or use navigation buttons to move through slices.
+
+4. Paint, erase, undo/redo edits, and save your corrected masks.
+
+All interactions are performed on a lightweight web frontend built with pure HTML/JS and Flask backend routes (`/api/slice`, `/api/mask/update`, `/api/save`, etc.).
