@@ -30,8 +30,6 @@ It allows users to load 2D images or 3D TIFF stacks, visualize masks, and perfor
 
 ---
 
----
-
 ## ⚙️ Setup Guide
 
 ### 1. Clone the Repository
