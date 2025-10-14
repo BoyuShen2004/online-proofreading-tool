@@ -30,4 +30,28 @@ It allows users to load 2D images or 3D TIFF stacks, visualize masks, and perfor
 
 ---
 
+---
 
+## ⚙️ Setup Guide
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/<your-username>/ProofreadingTool.git
+cd ProofreadingTool
+```
+
+### 2. Create Virtual Environment
+
+From your screenshot, the required environment looks like this:
+```bash
+conda create -n proofreadingtool python=3.10
+conda activate proofreadingtool
+pip install flask pillow numpy opencv-python tifffile
+```
+
+### 3. Run the Flask Server
+```bash
+python app.py
+```
+
+This will launch a local development server (default: `http://127.0.0.1:5000`).
