@@ -8,12 +8,14 @@ Supports:
 - 2D images (.png, .jpg, .tif)
 - 3D TIFF stacks (.tif/.tiff)
 - Automatic orientation correction (Z, Y, X convention)
+- Consistent _uploads/ directory handling for upload mode
 """
 
 import numpy as np
 import tifffile as tiff
 import cv2
 import os
+from PIL import Image
 
 
 # ------------------------------------------------------
@@ -46,6 +48,8 @@ def load_image_or_stack(path):
     ext = os.path.splitext(path)[-1].lower()
     if ext in [".png", ".jpg", ".jpeg"]:
         arr = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+        if arr is None:
+            raise ValueError(f"Failed to read image: {path}")
         if arr.ndim == 3:
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
         arr = _to_uint8(arr)
@@ -94,8 +98,18 @@ def load_mask_like(mask_path, volume):
         print("ℹ️ No mask found — creating empty mask.")
         return np.zeros_like(volume, dtype=np.uint8)
 
-    mask = np.asarray(tiff.imread(mask_path))
-    mask = _to_uint8(mask)
+    ext = os.path.splitext(mask_path)[-1].lower()
+    if ext in [".png", ".jpg", ".jpeg"]:
+        mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+        if mask is None:
+            raise ValueError(f"Failed to read mask: {mask_path}")
+        if mask.ndim == 3:
+            mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        mask = _to_uint8(mask)
+    else:
+        mask = np.asarray(tiff.imread(mask_path))
+        mask = _to_uint8(mask)
+
     print(f"📦 Raw mask shape: {mask.shape}")
 
     # If shapes match, done
@@ -123,23 +137,38 @@ def load_mask_like(mask_path, volume):
 
     if best is None:
         print(f"⚠️ Could not automatically align mask. Resizing to volume shape...")
-        mask = cv2.resize(mask[0] if mask.ndim == 3 else mask, (volume.shape[2], volume.shape[1]), interpolation=cv2.INTER_NEAREST)
-        mask = np.stack([mask] * volume.shape[0], axis=0)
+        mask2d = mask[0] if mask.ndim == 3 else mask
+        mask2d = cv2.resize(mask2d, (volume.shape[-1], volume.shape[-2]), interpolation=cv2.INTER_NEAREST)
+        if volume.ndim == 3:
+            mask = np.stack([mask2d] * volume.shape[0], axis=0)
+        else:
+            mask = mask2d
 
     print(f"✅ Final mask shape: {mask.shape}")
     return (mask > 0).astype(np.uint8)
 
 
 # ------------------------------------------------------
-# Core: save mask to disk (tiff)
+# Core: save mask to disk (auto extension)
 # ------------------------------------------------------
 def save_mask(mask, path):
     """
-    Save binary mask to disk as TIFF (uint8).
+    Save binary mask to disk as TIFF or PNG depending on file extension.
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     mask = (mask > 0).astype(np.uint8)
-    tiff.imwrite(path, mask)
+
+    ext = os.path.splitext(path)[-1].lower()
+    if ext in [".tif", ".tiff"]:
+        tiff.imwrite(path, mask)
+    elif ext in [".png", ".jpg", ".jpeg"]:
+        im = Image.fromarray(mask * 255)
+        im.save(path)
+    else:
+        # Default fallback to TIFF
+        tiff.imwrite(path + ".tif", mask)
+        path += ".tif"
+
     print(f"💾 Saved mask → {path} ({mask.shape})")
 
 
@@ -163,5 +192,6 @@ class Volume:
 
     def save(self, out_path):
         """Save current volume data (mainly for debugging)."""
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
         tiff.imwrite(out_path, self.data)
         print(f"💾 Volume saved to {out_path}")

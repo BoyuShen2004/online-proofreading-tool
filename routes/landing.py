@@ -18,7 +18,6 @@ from flask import (
     render_template,
     request,
     current_app,
-    flash,
     jsonify
 )
 import os
@@ -110,34 +109,84 @@ def index():
         try:
             volume = load_image_or_stack(img_path)
             mask = load_mask_like(mask_path, volume)
+
             mode3d = isinstance(volume, np.ndarray) and volume.ndim == 3
+            img_shape_str = " × ".join(map(str, volume.shape))
+
+            mask_shape_str = None
+            if mask is not None and isinstance(mask, np.ndarray):
+                mask_shape_str = " × ".join(map(str, mask.shape))
+
         except Exception as e:
             warning = f"⚠️ Error loading data: {e}"
+            img_shape_str = None
+            mask_shape_str = None
             return render_template(
                 "mask_editor.html",
                 warning=warning,
                 mode3d=False,
                 num_slices=1,
                 image_path=img_path,
-                mask_path=mask_path
+                mask_path=mask_path,
+                shape=img_shape_str,
+                mask_shape=mask_shape_str
             )
 
         # ----------------------------
-        # 4. Update session (keep values)
+        # 4. Update session and render editor
         # ----------------------------
-        sm.update(mode3d=mode3d, image_path=img_path, mask_path=mask_path)
+        sm.update(
+            mode3d=mode3d,
+            image_path=img_path,
+            mask_path=mask_path,
+            load_mode=load_mode,
+            image_name=os.path.basename(img_path)  # for upload or path, both fine
+        )
         current_app.config["CURRENT_VOLUME"] = volume
         current_app.config["CURRENT_MASK"] = mask
 
         num_slices = volume.shape[0] if mode3d else 1
+
         return render_template(
             "mask_editor.html",
             mode3d=mode3d,
             num_slices=num_slices,
             image_path=img_path,
             mask_path=mask_path,
+            shape=img_shape_str,
+            mask_shape=mask_shape_str,
             warning=None
         )
 
-    # Default GET
+    # ----------------------------
+    # Default GET (landing page)
+    # ----------------------------
     return render_template("index.html")
+
+
+# ==========================================================
+# ✅ New route: /api/dims — return shape of uploaded image/mask
+# ==========================================================
+@bp.route("/api/dims", methods=["POST"])
+def get_dims():
+    """
+    Returns the dimensions of an uploaded image or mask file.
+    This endpoint is used by both the landing page and the editor
+    when a user uploads a new dataset.
+    """
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    import tifffile
+    from PIL import Image
+
+    try:
+        if file.filename.lower().endswith((".tif", ".tiff")):
+            arr = tifffile.imread(file)
+        else:
+            arr = np.array(Image.open(file))
+
+        return jsonify({"shape": list(arr.shape)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

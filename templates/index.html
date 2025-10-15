@@ -43,6 +43,23 @@
     .btn:hover {
       background-color: #1d4ed8;
     }
+
+    /* --- inline row layout for upload section --- */
+    .inline-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .inline-row label {
+      min-width: 140px;
+      margin-bottom: 0;
+    }
+    .dim-info {
+      color: #555;
+      font-size: 0.95em;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -75,15 +92,18 @@
       </div>
     </div>
 
-    <!-- Upload inputs -->
+    <!-- Upload inputs (inline layout) -->
     <div id="upload-inputs" style="display:none;">
-      <div class="form-group">
+      <div class="inline-row">
         <label>Image/Stack file</label>
         <input type="file" name="image_file" accept=".tif,.tiff,.png,.jpg,.jpeg">
+        <span id="dim-info" class="dim-info"></span>
       </div>
-      <div class="form-group">
+
+      <div class="inline-row">
         <label>Mask file (optional)</label>
         <input type="file" name="mask_file" accept=".tif,.tiff,.png,.jpg,.jpeg">
+        <span id="mask-dim-info" class="dim-info"></span>
       </div>
     </div>
 
@@ -106,6 +126,46 @@
           uploadInputs.style.display = "block";
         }
       });
+    });
+
+    // --- Display inline dimensions for image ---
+    const imgInput = document.querySelector('input[name="image_file"]');
+    imgInput?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/dims", { method: "POST", body: formData });
+      const data = await res.json();
+
+      const span = document.getElementById("dim-info");
+      if (data.shape) {
+        span.textContent = "Image Dimensions: " + data.shape.join(" × ");
+      } else {
+        span.textContent = "Error: " + (data.error || "could not read file");
+      }
+    });
+
+    // --- Display inline dimensions for mask ---
+    const maskInput = document.querySelector('input[name="mask_file"]');
+    maskInput?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/dims", { method: "POST", body: formData });
+      const data = await res.json();
+
+      const span = document.getElementById("mask-dim-info");
+      if (data.shape) {
+        span.textContent = "Mask dimensions: " + data.shape.join(" × ");
+      } else {
+        span.textContent = "Error: " + (data.error || "could not read mask");
+      }
     });
   </script>
 </body>
