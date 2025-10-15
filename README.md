@@ -99,6 +99,6 @@ When running on the HPC:
   - If you edit without an existing mask, clicking Save will automatically create a mask file with the same base name as the image and suffix `_mask`.
 
   - Example:
-    Editing worm_stack.tif → Saves as worm_stack_mask.tif
+    Editing `worm_stack.tif` → Saves as `worm_stack_mask.tif`
 
-  - The output mask file preserves the original image’s format (.tif, .png, .jpg, .jpeg).
+  - The output mask file preserves the original image’s format (`.tif`/`.tiff`, `.png`, `.jpg`, `.jpeg`).
