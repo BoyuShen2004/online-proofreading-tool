@@ -8,7 +8,7 @@ It allows users to load 2D images or 3D TIFF stacks, visualize masks, and perfor
 ## 🚀 Features
 
 - **2D and 3D TIFF stack support**  
-  Load single-plane `.png`/`.jpg` images or multi-slice `.tif`/`.tiff` volumes.
+  Load single-plane `.png`/`.jpg`/`.jpeg` images or multi-slice `.tif`/`.tiff` volumes.
 
 - **Interactive mask editing**  
   Paint and erase with adjustable brush sizes; supports undo/redo and real-time display.
@@ -56,14 +56,49 @@ This will launch a local development server (default: `http://127.0.0.1:5000`).
 
 ---
 
-🌐 Usage
+## 🖥️ Running on an HPC Server
 
-1. Open http://localhost:5002 in your browser.
+You can run the tool on an HPC (e.g., MIT ORCD) and access it from your local machine browser.
 
-2. Choose to load via path (server-side images) or upload files.
+### 1. Port Forwarding (on your local terminal)
+```bash
+ssh -L 5002:127.0.0.1:5002 <username>@orcd-login001.mit.edu
+```
 
-3. For 3D datasets, scroll or use navigation buttons to move through slices.
+### 2. Create Virtual Environment
+```bash
+conda activate proofreadingtool
+```
 
-4. Paint, erase, undo/redo edits, and save your corrected masks.
+### 3. Run the Flask Server
+```bash
+python app.py
+```
 
-All interactions are performed on a lightweight web frontend built with pure HTML/JS and Flask backend routes (`/api/slice`, `/api/mask/update`, `/api/save`, etc.).
+### 4. Access in Your Browser
+
+Once the server starts, open this on your local machine:
+```bash
+http://127.0.0.1:5002
+```
+
+---
+
+## 📂 File Handling on HPC
+
+When running on the HPC:
+
+- Two ways to load data
+
+  1. Upload from your local computer directly via the browser.
+
+  2. Load existing files from absolute server paths (e.g., `/orcd/data/.../images/sample.tif`).
+
+- Saving behavior
+
+  - If you edit without an existing mask, clicking Save will automatically create a mask file with the same base name as the image and suffix `_mask`.
+
+  - Example:
+    Editing worm_stack.tif → Saves as worm_stack_mask.tif
+
+  - The output mask file preserves the original image’s format (.tif, .png, .jpg, .jpeg).
